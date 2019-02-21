@@ -27,7 +27,7 @@ for key in securities['results']:
     for article in news['results']:
         article = dict(article)
         print '--------------------------------------------------'
-        print article['title']
+        print '(Pub: '+ article['published_at'] + ') ' + article['title']
         print article['url']
         #print article['summary']
 
