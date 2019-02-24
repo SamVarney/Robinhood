@@ -200,7 +200,7 @@ class Robinhood:
                 (:obj:`dict`): JSON dict of instrument
         """
         url = str(endpoints.instruments()) + "?symbol=" + str(id)
-
+        print "instrument: " + url
         try:
             req = requests.get(url, timeout=15)
             req.raise_for_status()
@@ -229,6 +229,24 @@ class Robinhood:
             url = str(endpoints.quotes()) + "?symbols=" + str(stock)
 
         #Check for validity of symbol
+        print "quote_data: " + url
+        try:
+            req = requests.get(url, headers=self.headers, timeout=15)
+            req.raise_for_status()
+            data = req.json()
+        except requests.exceptions.HTTPError:
+            raise RH_exception.InvalidTickerSymbol()
+
+
+        return data
+
+    def crypto_quote_data(self, pair=''):
+        url = None
+
+        #only working with one currency pair at a time now
+        url = str(endpoints.crypto_quotes() + str(pair) + "/")
+
+        #check for validity of pair
         try:
             req = requests.get(url, headers=self.headers, timeout=15)
             req.raise_for_status()
@@ -590,7 +608,7 @@ class Robinhood:
         """
             Flat wrapper for fetching URL directly
         """
-
+        print "get_url: " + url
         return self.session.get(url, timeout=15).json()
 
     def get_popularity(self, stock=''):

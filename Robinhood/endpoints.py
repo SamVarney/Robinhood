@@ -61,6 +61,9 @@ def positions():
 def quotes():
     return api_url + "/quotes/"
 
+def crypto_quotes():
+    return api_url + "/marketdata/forex/quotes/"
+
 def historicals():
     return api_url + "/quotes/historicals/"
 

@@ -110,16 +110,19 @@ class Stock:
 
         return
 
-#Setup
-my_trader = Robinhood()
 
-#login
-my_trader.login(username=config.USERNAME, password=config.PASSWORD)
-instrument = dict(my_trader.instruments('AGEN')[0])
+def __main__():
+    #Setup
+    my_trader = Robinhood()
 
-agen = Stock(my_trader, instrument)
-print '------------------------'
-#agen.all_info()
-#agen.quote_info()
+    #login
+    my_trader.login(username=config.USERNAME, password=config.PASSWORD)
+    instrument = dict(my_trader.instruments('BTH'))
+    print instrument
+    agen = Stock(my_trader, instrument)
+    agen.general_info()
+    print '------------------------'
+    #agen.all_info()
+    #agen.quote_info()
 
-port = Portfolio(my_trader)
+    port = Portfolio(my_trader)
