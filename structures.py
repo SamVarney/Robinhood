@@ -111,15 +111,12 @@ class Stock:
 
 class crypto_porfolio:
     def __init__(self, my_trader):
+        #Get holdings from robinhood
         holdings = my_trader.crypto_holdings()
-        print holdings
+
+        #Create a holding instance for each crypto currency, ignoring the USD currency element that comes at the end
         self.holdings = []
-
         for holding in holdings:
-            #3 print "***********************************************************************************"
-            #print "***********************************************************************************"
-
-            #make holding instance for each crypto owned, ignoring the USD currency element that comes at the end
             cost_bases = holding['cost_bases']  # TODO: will this every return a list with more than 1 element?
             if len(cost_bases) > 0:
                 self.holdings.append(cryto_holding(my_trader, holding))
@@ -128,12 +125,6 @@ class crypto_porfolio:
                 print "cost bases has length of {}".format(len(cost_bases))
                 print "Not a holding. Probably the USD item that comes at end of holdings request."
 
-
-
-           # for item in holding:
-               # print "---------------------------------"
-               # print item
-                #print holding[item]
 
     def general_info(self):
         for holding in self.holdings:
@@ -180,7 +171,6 @@ class cryto_holding:
 
         #Selling Info
         self.bid_price = float(quote['bid_price'])
-        print self.bid_price
 
         #Buying Info
         self.ask_price = float(quote['ask_price'])
@@ -194,10 +184,7 @@ class cryto_holding:
         self.quote_id = quote['id'] #TODO: Not sure if this is actually the quote id
 
         #Quote Update Time (don't plan to use for a bit)
-       # self.quote_time = datetime.strptime(str(quote['updated_at']),'%Y-%m-%dT%H:%M:%SZ') #Assuming it will always come as UTC (Z)
-        #self.quote_time = time.strftime('%Y-%m-%dT%H:%M:%SZ')
-        self.quote_time = datetime.now()
-        print self.quote_time
+        self.quote_time = datetime.now() #crypto quotes don't seem to come with a timestamp (TODO:revisit to check if it changes)
 
         return
 
