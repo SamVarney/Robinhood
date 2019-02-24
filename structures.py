@@ -25,8 +25,6 @@ class Portfolio:
         for stock in self.stocks:
             print stock.general_info()
 
-
-
 class Stock:
     def __init__(self, my_trader, instrument):
         self.symbol = instrument['symbol']
@@ -92,7 +90,7 @@ class Stock:
         print 'Symbol: {}'.format(self.symbol)
         print '# Owned: {}'.format(self.quantity_owned)
         print 'Avg Buy Cost: ${}'.format(self.avg_buy_cost)
-        print 'Return:       ${}'.format(self.bid_price*self.quantity_owned - self.avg_buy_cost*self.quantity_owned)
+        print 'Return:       ${}'.format(self.bid_price*self.quantity_owned - self.avg_buy_cost*self.quantity_owned) #TODO: should use market price not bid price
         print '----------------------------------\n'
 
 
@@ -111,12 +109,126 @@ class Stock:
         return
 
 
-def __main__():
+class crypto_porfolio:
+    def __init__(self, my_trader):
+        holdings = my_trader.crypto_holdings()
+        print holdings
+        self.holdings = []
+
+        for holding in holdings:
+            #3 print "***********************************************************************************"
+            #print "***********************************************************************************"
+
+            #make holding instance for each crypto owned, ignoring the USD currency element that comes at the end
+            cost_bases = holding['cost_bases']  # TODO: will this every return a list with more than 1 element?
+            if len(cost_bases) > 0:
+                self.holdings.append(cryto_holding(my_trader, holding))
+
+            else: #not a crypto holding
+                print "cost bases has length of {}".format(len(cost_bases))
+                print "Not a holding. Probably the USD item that comes at end of holdings request."
+
+
+
+           # for item in holding:
+               # print "---------------------------------"
+               # print item
+                #print holding[item]
+
+    def general_info(self):
+        for holding in self.holdings:
+            holding.general_info()
+
+class cryto_holding:
+    def __init__(self, my_trader, holding):
+        self.trader = my_trader
+
+        #account info
+        self.account_id = holding['account_id']
+        self.created_at = holding['created_at']
+        self.updated_at = holding['updated_at']
+
+        #currency info
+        currency = dict(holding['currency'])
+        self.code = currency['code']
+        self.name = currency['name']
+        self.currency_id = currency['id']
+
+        #quantities
+        self.quantity_available = float(holding['quantity_available'])
+        self.quantity_held_for_sell = float(holding['quantity_held_for_sell'])
+        self.quantity_total = float(holding['quantity'])
+        self.id = holding['id'] #TODO: Figure out what this id refers to
+
+        #Cost info
+        cost_bases = holding['cost_bases'] #TODO: will this every return a list with more than 1 element?
+        if len(cost_bases) > 0:
+            cost_bases = dict(cost_bases[0])
+            self.direct_cost_basis = float(cost_bases['direct_cost_basis'])
+            self.direct_quantity = float(cost_bases['direct_quantity'])  # TODO: what is Direct Quantity vs Quantity held?
+            self.intraday_cost_basis = float(cost_bases['intraday_cost_basis'])
+            self.avg_cost_per_coin = self.intraday_cost_basis/self.quantity_available #TODO: this lines up w/Value in app but validate the calculation values
+
+        else:
+            print "cost bases has length of {}".format(len(cost_bases))
+            print "Not a holding. Probably the USD item that comes at end of holdings request."
+
+
+    #quote methods
+    def get_quote(self):
+        quote = my_trader.crypto_quote_data("{}USD".format(self.code)) #assuming I'll always buy in USD
+
+        #Selling Info
+        self.bid_price = float(quote['bid_price'])
+        print self.bid_price
+
+        #Buying Info
+        self.ask_price = float(quote['ask_price'])
+
+        #TODO: Figure out what each of these mean
+        self.high_price = float(quote['high_price'])
+        self.low_price = float(quote['low_price'])
+        self.volume = float(quote['volume'])
+        self.mark_price = float(quote['mark_price'])
+        self.open_price = float(quote['open_price'])
+        self.quote_id = quote['id'] #TODO: Not sure if this is actually the quote id
+
+        #Quote Update Time (don't plan to use for a bit)
+       # self.quote_time = datetime.strptime(str(quote['updated_at']),'%Y-%m-%dT%H:%M:%SZ') #Assuming it will always come as UTC (Z)
+        #self.quote_time = time.strftime('%Y-%m-%dT%H:%M:%SZ')
+        self.quote_time = datetime.now()
+        print self.quote_time
+
+        return
+
+
+    #Info methods
+    def general_info(self):
+        self.get_quote()  # update for most current price
+
+        print '\n__________General Info for {}___________'.format(self.name)
+        print 'Code: {}'.format(self.code)
+        print '# Owned: {}'.format(self.quantity_total)
+        print 'Avg Buy Cost: ${}'.format(self.avg_cost_per_coin)
+        print 'Return:       ${}'.format(self.mark_price*self.quantity_available - self.avg_cost_per_coin*self.quantity_available)
+        print '----------------------------------\n'
+
+
+        #print currency
+
+
+
+
+
+
+
+if __name__ == "__main__":
     #Setup
     my_trader = Robinhood()
 
     #login
     my_trader.login(username=config.USERNAME, password=config.PASSWORD)
+    """
     instrument = dict(my_trader.instruments('BTH'))
     print instrument
     agen = Stock(my_trader, instrument)
@@ -126,3 +238,7 @@ def __main__():
     #agen.quote_info()
 
     port = Portfolio(my_trader)
+    """
+
+    holdings =  crypto_porfolio(my_trader)
+    holdings.general_info()

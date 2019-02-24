@@ -2,6 +2,7 @@ from Robinhood import Robinhood
 import config
 from structures import Portfolio
 from Robinhood.crypto import RobinhoodCrypto
+import pandas as pd
 import Robinhood.endpoints as end_points
 import requests
 
@@ -54,3 +55,21 @@ for pair in RobinhoodCrypto.PAIRS:
     print quote['symbol'] + ": " + str(quote)
 
 #print my_trader.get_url(quote_endpoint + str("EXTR"))
+
+
+
+#holdings_pd = pd.DataFrame(holdings, columns=holdings.keys())
+#print holdings_pd
+
+holdings = my_trader.crypto_holdings()
+print holdings
+
+for holding in holdings:
+    print "***********************************************************************************"
+    print "***********************************************************************************"
+    for item in holding:
+        print "---------------------------------"
+        print item
+        print holding[item]
+
+print holdings.keys()

@@ -1,4 +1,5 @@
 api_url = "https://api.robinhood.com"
+crypto_url = "https://nummus.robinhood.com"
 
 def login():
     return api_url + "/oauth2/token/"
@@ -54,6 +55,9 @@ def password_reset():
 
 def portfolios():
     return api_url + "/portfolios/"
+
+def crypto_holdings():
+    return crypto_url + "/holdings/"
 
 def positions():
     return api_url + "/positions/"

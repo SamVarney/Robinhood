@@ -727,6 +727,11 @@ class Robinhood:
 
         return req.json()['results'][0]
 
+    def crypto_holdings(self):
+        req = self.session.get(endpoints.crypto_holdings(), timeout=15)
+        req.raise_for_status()
+        print req
+        return req.json()['results']
 
     def adjusted_equity_previous_close(self):
         """Wrapper for portfolios
