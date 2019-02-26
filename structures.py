@@ -57,7 +57,7 @@ class Stock:
     def get_quote(self):
         #use instrument url to get current quote prices
         quote = dict(self.trader.quote_data(self.symbol))
-
+        print quote
         #Selling Info
         self.bid_price = float(quote['bid_price'])
         self.bid_size = float(quote['bid_size'])
@@ -65,6 +65,9 @@ class Stock:
         #Buying Info
         self.ask_price = float(quote['ask_price'])
         self.ask_size = float(quote['ask_size'])
+
+        #Other Info
+        self.last_extened_hours_trade_price = float(quote['last_extended_hours_trade_price']) # for estimating return when markets are closed
 
         #Quote Update Time (don't plan to use for a bit)
         self.quote_time = datetime.strptime(str(quote['updated_at']),'%Y-%m-%dT%H:%M:%SZ') #Assuming it will always come as UTC (Z)
@@ -90,7 +93,10 @@ class Stock:
         print 'Symbol: {}'.format(self.symbol)
         print '# Owned: {}'.format(self.quantity_owned)
         print 'Avg Buy Cost: ${}'.format(self.avg_buy_cost)
-        print 'Return:       ${}'.format(self.bid_price*self.quantity_owned - self.avg_buy_cost*self.quantity_owned) #TODO: should use market price not bid price
+        if self.bid_price > 0: #TODO: make this acutally work (instead of repeating the same code)
+            print 'Return:       ${}'.format(self.bid_price*self.quantity_owned - self.avg_buy_cost*self.quantity_owned) #TODO: should use market price not bid price
+        else:
+            print 'Return:       ${}'.format(self.bid_price * self.quantity_owned - self.avg_buy_cost * self.quantity_owned)  # TODO: should use market price not bid price
         print '----------------------------------\n'
 
 
@@ -122,7 +128,7 @@ class crypto_porfolio:
                 self.holdings.append(cryto_holding(my_trader, holding))
 
             else: #not a crypto holding
-                print "cost bases has length of {}".format(len(cost_bases))
+                print "Cost_bases has length of {}".format(len(cost_bases))
                 print "Not a holding. Probably the USD item that comes at end of holdings request."
 
 
@@ -158,7 +164,10 @@ class cryto_holding:
             self.direct_cost_basis = float(cost_bases['direct_cost_basis'])
             self.direct_quantity = float(cost_bases['direct_quantity'])  # TODO: what is Direct Quantity vs Quantity held?
             self.intraday_cost_basis = float(cost_bases['intraday_cost_basis'])
-            self.avg_cost_per_coin = self.intraday_cost_basis/self.quantity_available #TODO: this lines up w/Value in app but validate the calculation values
+            if self.quantity_total > 0:
+                self.avg_cost_per_coin = self.direct_cost_basis/self.quantity_total #TODO: this lines up w/Value in app but validate the calculation values
+            else:
+                self.avg_cost_per_coin = None
 
         else:
             print "cost bases has length of {}".format(len(cost_bases))
@@ -197,7 +206,10 @@ class cryto_holding:
         print 'Code: {}'.format(self.code)
         print '# Owned: {}'.format(self.quantity_total)
         print 'Avg Buy Cost: ${}'.format(self.avg_cost_per_coin)
-        print 'Return:       ${}'.format(self.mark_price*self.quantity_available - self.avg_cost_per_coin*self.quantity_available)
+
+        if self.quantity_total >0:
+            print 'Return:       ${}'.format(self.mark_price*self.quantity_available - self.avg_cost_per_coin*self.quantity_available)
+
         print '----------------------------------\n'
 
 
@@ -215,17 +227,20 @@ if __name__ == "__main__":
 
     #login
     my_trader.login(username=config.USERNAME, password=config.PASSWORD)
+
     """
     instrument = dict(my_trader.instruments('BTH'))
     print instrument
     agen = Stock(my_trader, instrument)
     agen.general_info()
     print '------------------------'
+    """
     #agen.all_info()
     #agen.quote_info()
 
     port = Portfolio(my_trader)
-    """
+
+
 
     holdings =  crypto_porfolio(my_trader)
     holdings.general_info()
