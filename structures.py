@@ -67,7 +67,7 @@ class Stock:
         self.ask_size = float(quote['ask_size'])
 
         #Other Info
-        self.last_extened_hours_trade_price = float(quote['last_extended_hours_trade_price']) # for estimating return when markets are closed
+        self.last_extened_hours_trade_price = quote['last_extended_hours_trade_price'] # for estimating return when markets are closed
 
         #Quote Update Time (don't plan to use for a bit)
         self.quote_time = datetime.strptime(str(quote['updated_at']),'%Y-%m-%dT%H:%M:%SZ') #Assuming it will always come as UTC (Z)
@@ -206,9 +206,8 @@ class cryto_holding:
         print 'Code: {}'.format(self.code)
         print '# Owned: {}'.format(self.quantity_total)
         print 'Avg Buy Cost: ${}'.format(self.avg_cost_per_coin)
-
         if self.quantity_total >0:
-            print 'Return:       ${}'.format(self.mark_price*self.quantity_available - self.avg_cost_per_coin*self.quantity_available)
+            print 'Return:       ${}'.format(self.mark_price*self.quantity_total - self.avg_cost_per_coin*self.quantity_total)
 
         print '----------------------------------\n'
 
