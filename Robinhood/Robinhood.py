@@ -353,15 +353,18 @@ class Robinhood:
             Returns:
                 (:obj:`dict`) values returned from `historicals` endpoint
         """
-        if type(stock) is str:
-            stock = [stock]
+        #if type(stock) is str:
+        #    stock = [stock]
 
         if isinstance(bounds, str):  # recast to Enum
             bounds = Bounds(bounds)
 
-        historicals = endpoints.historicals() + "/?symbols=" + ','.join(stock).upper() + "&interval=" + interval + "&span=" + span + "&bounds=" + bounds.name.lower()
+        #TODO: implement option to have extended hours bounds instead of fixed for regular hours
+        historicals = endpoints.historicals() + "/?symbols=" + stock + "&interval=" + interval + "&span=" + span + "&bounds=" + bounds.REGULAR
 
+        print historicals
         res = self.session.get(historicals, timeout=15)
+        print res.json()
         return res.json()['results'][0]
 
 
@@ -608,7 +611,6 @@ class Robinhood:
         """
             Flat wrapper for fetching URL directly
         """
-        print "get_url: " + url
         return self.session.get(url, timeout=15).json()
 
     def get_popularity(self, stock=''):
@@ -731,6 +733,7 @@ class Robinhood:
         req = self.session.get(endpoints.crypto_holdings(), timeout=15)
         req.raise_for_status()
         return req.json()['results']
+
 
     def adjusted_equity_previous_close(self):
         """Wrapper for portfolios

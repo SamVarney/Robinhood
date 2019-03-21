@@ -50,6 +50,9 @@ def notifications():
 def orders(orderId=None):
     return api_url + "/orders/" + ("{id}/".format(id=orderId) if orderId else "")
 
+def cryto_orders(orderId=None):
+    return crypto_url + "/orders/" + ("{id}/".format(id=orderId if orderId else ""))
+
 def password_reset():
     return api_url + "/password_reset/request/"
 

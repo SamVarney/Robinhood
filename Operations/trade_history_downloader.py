@@ -1,8 +1,9 @@
 import json
 import csv
 import shelve
+import config
 
-from Robinhood import Robinhood
+from Robinhood.Robinhood import Robinhood
 
 def get_symbol_from_instrument_url(rb_client, url, db):
     instrument = {}
@@ -46,12 +47,12 @@ def get_all_history_orders(rb_client):
 
 rb = Robinhood()
 # !!!!!! change the username and passs, be careful when paste the code to public
-rb.login(username="name", password="pass")
+rb.login(username=config.USERNAME, password=config.PASSWORD)
 past_orders = get_all_history_orders(rb)
 instruments_db = shelve.open('instruments.db')
 orders = [order_item_info(order, rb, instruments_db) for order in past_orders]
 keys = ['side', 'symbol', 'shares', 'price', 'date', 'state']
-with open('orders.csv', 'w') as output_file:
+with open('/Users/samvarney/PycharmProjects/robinhood_trading/data/trade_history/orders.csv', 'w') as output_file:
     dict_writer = csv.DictWriter(output_file, keys)
     dict_writer.writeheader()
     dict_writer.writerows(orders)

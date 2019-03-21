@@ -4,6 +4,8 @@ from Robinhood import Robinhood
 import config
 import pandas as pd
 from datetime import time, datetime
+from bokeh.plotting import figure, output_file, show
+
 
 #my_trader = Robinhood()
 
@@ -19,14 +21,54 @@ class Portfolio:
         self.stocks = []
         for item in securities:
             instrument = dict(self.trader.get_url(item['instrument']))
-            self.stocks.append(Stock(self.trader, instrument))
+            self.stocks.append(Stock(self, self.trader, instrument))
 
 
         for stock in self.stocks:
             print stock.general_info()
 
+
+    def stock_handles(self):
+        stock_dict = dict()
+        for stock in self.stocks:
+            stock_dict[stock.symbol] = stock
+        print stock_dict
+        return stock_dict
+
+
+    def all_past_orders(self):
+        """
+        Gets past order history for STOCKS, won't return crypto trades
+        :return: df with all past orders
+        """
+
+        print "~~~~ Getting Trade History ~~~~"
+        #Get raw past order output from Robinhood
+        past_orders_raw = my_trader.order_history()
+
+        # Fetch past orders
+        results = past_orders_raw['results']
+
+        # reformat into a df
+        order_history_pd = pd.DataFrame(data=results)
+        order_history_pd.columns = order_history_pd.columns.astype(str)
+
+        # insert column that will hold symbol names for each trade
+        order_history_pd.insert(0, 'symbol', None)
+
+        # Use instrument url to get the stock symbol for each trade and insert it into the df
+        for row in order_history_pd.iterrows():
+            instrument = my_trader.get_url(row[1]['instrument'])
+            order_history_pd.at[row[0], 'symbol'] = instrument['symbol']
+
+        return order_history_pd
+
+
+
+
 class Stock:
-    def __init__(self, my_trader, instrument):
+    def __init__(self, portfolio, my_trader, instrument):
+        self.portfolio = portfolio
         self.symbol = instrument['symbol']
         self.id = instrument['id']
         self.fudamentals = instrument['fundamentals']
@@ -55,9 +97,10 @@ class Stock:
 
 
     def get_quote(self):
+
         #use instrument url to get current quote prices
         quote = dict(self.trader.quote_data(self.symbol))
-        print quote
+
         #Selling Info
         self.bid_price = float(quote['bid_price'])
         self.bid_size = float(quote['bid_size'])
@@ -71,7 +114,130 @@ class Stock:
 
         #Quote Update Time (don't plan to use for a bit)
         self.quote_time = datetime.strptime(str(quote['updated_at']),'%Y-%m-%dT%H:%M:%SZ') #Assuming it will always come as UTC (Z)
-        return
+
+        return True
+
+
+
+    def plot_out(self, data = None, data_type='historicals'):
+        '''
+
+        :param data:
+        :param data_type: Historical quotes, open-close, purchasing over historical prices
+        :return:
+        '''
+        print "********* Plotting {} ***********".format(self.symbol)
+
+        p = figure(title=self.symbol, plot_width=1000, plot_height=500)
+        p.line(x=data['begins_at'].values, y=data['high_price'].values, color='blue', legend='High Price')
+        p.line(x=data['begins_at'].values, y=data['low_price'].values, color='red', legend='Low Price')
+        p.legend
+        output_file('{}-buy sell plot'.format(self.symbol))
+        show(p,new="Tab")
+
+        return p
+
+    def update_past_orders(self):
+        all_past_orders = self.portfolio.all_past_orders()
+
+        #Now pre-parse into commonly used categories
+        self.past_orders = all_past_orders[all_past_orders['symbol']==self.symbol]
+
+        self.filled_orders = self.past_orders[self.past_orders['state']=='filled']
+
+
+
+
+    def plot_purchase_vs_price(self):
+        self.update_past_orders()
+
+        buy_orders = pd.DataFrame(columns=['datetime','price'])
+        sell_orders = pd.DataFrame(columns=['datetime', 'price'])
+
+        for order in self.filled_orders.iterrows():
+            order = order[1]
+
+            if order['side'] == 'buy': #Buy Orders
+                executions = order['executions'][0]
+                price = float(executions['price'])
+                #print price
+                timestamp = executions['timestamp']
+
+                #print price, timestamp
+
+                buy_orders = buy_orders.append({'datetime': timestamp,
+                                   'price': price}, ignore_index=True)
+
+            elif order['side'] == 'sell':
+                executions = order['executions'][0]
+                price = float(executions['price'])
+                timestamp = executions['timestamp']
+
+                sell_orders = buy_orders.append({'datetime': timestamp,
+                                   'price': price}, ignore_index=True)
+
+
+        #convert timestamps to datetime for plotting
+        buy_orders['datetime'] = pd.to_datetime(buy_orders['datetime'])
+        sell_orders['datetime'] = pd.to_datetime(buy_orders['datetime'])
+        print buy_orders
+        print sell_orders
+
+
+        #now plot
+
+        p = figure(title="{} - Buy/Sell vs Price".format(self.symbol), plot_width=1000, plot_height=500, x_axis_type='datetime')
+        p.scatter(x=buy_orders['datetime'].values, y=buy_orders['price'].values, color='red', legend='Buy')
+        p.scatter(x=sell_orders['datetime'].values, y=sell_orders['price'].values, color='green', legend='Sell')
+
+        #Add quote data to overlay buy/sell points on
+        hist_df = self.historical_quotes(interval='day', span='year')
+        p.line(x=hist_df['begins_at'].values, y=hist_df['high_price'].values, color='blue', legend='High Price')
+        p.line(x=hist_df['begins_at'].values, y=hist_df['low_price'].values, color='red', legend='Low Price')
+        p.legend
+
+        output_file('{}-buy sell plot.html'.format(self.symbol))
+        show(p)
+
+        return p
+
+
+
+    def historical_quotes(self, interval = '5minute', span = 'week', plot=False):
+        '''
+
+        :param num_months: number of months to fetch
+        :return:
+        '''
+
+        #Grab historical data
+        print self.symbol
+        history = my_trader.get_historical_quotes(self.symbol, interval=interval, span = span, bounds='regular')
+
+
+        #sort and reformat historicals
+        historicals = history['historicals']
+        self.historicals = historicals
+
+        hist_pd = pd.DataFrame.from_dict(historicals)
+        self.hist_pd = hist_pd
+        hist_pd.columns = hist_pd.columns.astype(str)
+        hist_pd['begins_at'] = pd.to_datetime(hist_pd['begins_at'])
+
+
+        #save log
+        #TODO: add time span to naming
+        hist_pd.to_csv('/Users/samvarney/PycharmProjects/robinhood_trading/data/quote_historicals/{}_hist_quotes.csv'.format(self.symbol))
+
+        if plot:
+            self.plot_out(data = hist_pd, data_type='historical_quotes')
+
+        return hist_pd
+
+
+
+
+
 
 
     #Methods for summarizing information on stock
@@ -135,6 +301,10 @@ class crypto_porfolio:
     def general_info(self):
         for holding in self.holdings:
             holding.general_info()
+
+
+
+
 
 class cryto_holding:
     def __init__(self, my_trader, holding):
@@ -239,7 +409,23 @@ if __name__ == "__main__":
 
     port = Portfolio(my_trader)
 
+    """
+    past_orders = port.all_past_orders()
+    for row in past_orders.iterrows():
+        data = row[1]
+        if data['state'] == 'filled':
+            print data['executions']
+      """
 
 
-    holdings =  crypto_porfolio(my_trader)
-    holdings.general_info()
+
+
+    stock_dict = port.stock_handles()
+    for key in stock_dict:
+        stock = stock_dict[key]
+        stock.plot_purchase_vs_price()
+
+
+
+    #holdings =  crypto_porfolio(my_trader)
+    #holdings.general_info()
