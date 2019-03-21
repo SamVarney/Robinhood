@@ -340,8 +340,9 @@ class Robinhood:
 
             Note: valid interval/span configs
                 interval = 5minute | 10minute + span = day, week
-                interval = day + span = year
+                interval = day + span = month, 3month, 6month, year, 5year
                 interval = week
+
                 TODO: NEEDS TESTS
 
             Args:

@@ -119,38 +119,68 @@ class Stock:
 
 
 
-    def plot_out(self, data = None, data_type='historicals'):
+    def plot_historical_quotes(self, interval = '5minute', span = 'week', fig_title='', show_plot = True):
         '''
-
+        Creates a bokeh plot of the historical quotes for this stock. Useful for then overlaying other info (like
+        buy/sell points, etc.)
         :param data:
         :param data_type: Historical quotes, open-close, purchasing over historical prices
-        :return:
+        :return: Bokeh plot of historical quotes
         '''
-        print "********* Plotting {} ***********".format(self.symbol)
 
-        p = figure(title=self.symbol, plot_width=1000, plot_height=500)
-        p.line(x=data['begins_at'].values, y=data['high_price'].values, color='blue', legend='High Price')
-        p.line(x=data['begins_at'].values, y=data['low_price'].values, color='red', legend='Low Price')
-        p.legend
-        output_file('{}-buy sell plot'.format(self.symbol))
-        show(p,new="Tab")
+        #create generic figure name if one wasn't passed
+        if fig_title == '':
+            fig_title = "{} - Historical Quotes".format(self.symbol)
+
+
+        #Get historical quotes
+        self.historical_quotes_df = self.historical_quotes(interval=interval, span=span)
+
+        print "********* Plotting Historical Quotes for {} ***********".format(self.symbol)
+
+        #Do the plotting
+        p = figure(title=fig_title, plot_width=1000, plot_height=500, x_axis_type = 'datetime')
+        p.line(x= self.historical_quotes_df['begins_at'].values, y=self.historical_quotes_df['high_price'].values, color='blue', legend='High Price')
+        p.line(x=self.historical_quotes_df['begins_at'].values, y=self.historical_quotes_df['low_price'].values, color='red', legend='Low Price')
+
+        p.yaxis.axis_label = "Price (Dollar)"
+        p.xaxis.axis_label = "Date"
+
+        output_file('{}-Historical Quotes Plot.html'.format(self.symbol))
+
+        if show_plot:
+            show(p)
 
         return p
 
     def update_past_orders(self):
-        all_past_orders = self.portfolio.all_past_orders()
+        """
+        Fetches past orders of this stock and does some parsing to make accessing filled orders easier elsewhere
+        :return:
+        """
+
+        #TODO: Implement a method to grab the order history for just one stock
+        all_past_orders = self.portfolio.all_past_orders() #This is REALLY inefficient (takes forever)
 
         #Now pre-parse into commonly used categories
-        self.past_orders = all_past_orders[all_past_orders['symbol']==self.symbol]
+        self.past_orders = all_past_orders[all_past_orders['symbol']==self.symbol] #Past orders for only this stock
+        self.filled_orders = self.past_orders[self.past_orders['state']=='filled'] #Only orders that were filled (not canceled)
 
-        self.filled_orders = self.past_orders[self.past_orders['state']=='filled']
-
-
+        return True
 
 
     def plot_purchase_vs_price(self):
+        """
+        Plots the buy & Sell order history of this stock overlaid on the historical quote data to get a quick guage of
+        buy vs sell timing.
+
+        :output: Bokeh Plot. Shows it in a browser and saves it.
+        :return: True
+        """
+        #Fetch most up to date past orders
         self.update_past_orders()
 
+        #Now parse out sell and buy orders into their own dataframes
         buy_orders = pd.DataFrame(columns=['datetime','price'])
         sell_orders = pd.DataFrame(columns=['datetime', 'price'])
 
@@ -160,50 +190,47 @@ class Stock:
             if order['side'] == 'buy': #Buy Orders
                 executions = order['executions'][0]
                 price = float(executions['price'])
-                #print price
                 timestamp = executions['timestamp']
 
-                #print price, timestamp
-
+                #append to buy orders df
                 buy_orders = buy_orders.append({'datetime': timestamp,
                                    'price': price}, ignore_index=True)
 
-            elif order['side'] == 'sell':
+            elif order['side'] == 'sell': #Sell Orders
                 executions = order['executions'][0]
                 price = float(executions['price'])
                 timestamp = executions['timestamp']
 
+                #append to sell orders df
                 sell_orders = buy_orders.append({'datetime': timestamp,
                                    'price': price}, ignore_index=True)
-
 
         #convert timestamps to datetime for plotting
         buy_orders['datetime'] = pd.to_datetime(buy_orders['datetime'])
         sell_orders['datetime'] = pd.to_datetime(buy_orders['datetime'])
-        print buy_orders
-        print sell_orders
 
 
-        #now plot
+        #PLOTTING
+        #Start by creating plot of historical Quotes to build off of
+        p = self.plot_historical_quotes(interval='day',
+                                        span='3month',
+                                        fig_title='{} - Buy vs Sell Plot'.format(self.symbol),
+                                        show_plot=False)
 
-        p = figure(title="{} - Buy/Sell vs Price".format(self.symbol), plot_width=1000, plot_height=500, x_axis_type='datetime')
-        p.scatter(x=buy_orders['datetime'].values, y=buy_orders['price'].values, color='red', legend='Buy')
+        #now plot buy and sell orders over the historical quotes data
+        p.scatter(x=buy_orders['datetime'].values, y=buy_orders['price'].values, color='black', legend='Buy')
         p.scatter(x=sell_orders['datetime'].values, y=sell_orders['price'].values, color='green', legend='Sell')
-
-        #Add quote data to overlay buy/sell points on
-        hist_df = self.historical_quotes(interval='day', span='year')
-        p.line(x=hist_df['begins_at'].values, y=hist_df['high_price'].values, color='blue', legend='High Price')
-        p.line(x=hist_df['begins_at'].values, y=hist_df['low_price'].values, color='red', legend='Low Price')
         p.legend
 
+        #save and show the plot
         output_file('{}-buy sell plot.html'.format(self.symbol))
         show(p)
 
-        return p
+        return True
 
 
 
-    def historical_quotes(self, interval = '5minute', span = 'week', plot=False):
+    def historical_quotes(self, interval = '5minute', span = 'week'):
         '''
 
         :param num_months: number of months to fetch
@@ -211,37 +238,25 @@ class Stock:
         '''
 
         #Grab historical data
-        print self.symbol
         history = my_trader.get_historical_quotes(self.symbol, interval=interval, span = span, bounds='regular')
 
 
         #sort and reformat historicals
         historicals = history['historicals']
-        self.historicals = historicals
 
         hist_pd = pd.DataFrame.from_dict(historicals)
-        self.hist_pd = hist_pd
         hist_pd.columns = hist_pd.columns.astype(str)
         hist_pd['begins_at'] = pd.to_datetime(hist_pd['begins_at'])
-
 
         #save log
         #TODO: add time span to naming
         hist_pd.to_csv('/Users/samvarney/PycharmProjects/robinhood_trading/data/quote_historicals/{}_hist_quotes.csv'.format(self.symbol))
 
-        if plot:
-            self.plot_out(data = hist_pd, data_type='historical_quotes')
-
         return hist_pd
 
 
 
-
-
-
-
-    #Methods for summarizing information on stock
-
+    # Methods for summarizing information on stock
     def all_info(self):
 
         self.general_info()
@@ -259,6 +274,7 @@ class Stock:
         print 'Symbol: {}'.format(self.symbol)
         print '# Owned: {}'.format(self.quantity_owned)
         print 'Avg Buy Cost: ${}'.format(self.avg_buy_cost)
+
         if self.bid_price > 0: #TODO: make this acutally work (instead of repeating the same code)
             print 'Return:       ${}'.format(self.bid_price*self.quantity_owned - self.avg_buy_cost*self.quantity_owned) #TODO: should use market price not bid price
         else:
@@ -423,6 +439,7 @@ if __name__ == "__main__":
     stock_dict = port.stock_handles()
     for key in stock_dict:
         stock = stock_dict[key]
+        #stock.plot_historical_quotes()
         stock.plot_purchase_vs_price()
 
 
