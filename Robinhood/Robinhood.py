@@ -229,7 +229,6 @@ class Robinhood:
             url = str(endpoints.quotes()) + "?symbols=" + str(stock)
 
         #Check for validity of symbol
-        print "quote_data: " + url
         try:
             req = requests.get(url, headers=self.headers, timeout=15)
             req.raise_for_status()
@@ -938,6 +937,34 @@ class Robinhood:
 
         return res
 
+    def buy_crypto(self, pair,
+                     price=0.0,
+                     quantity=1,
+                     transaction=None,
+                     order='market',
+                     time_in_force='gfd'):
+
+        #kwargs.keys() == ['price', 'quantity', 'side', 'time_in_force', 'type']
+
+        if isinstance(transaction, str):
+            transaction = Transaction(transaction)
+
+        payload = {
+            'account_id': self.client_id,
+            'currency_pair_id': pair,
+            'quantity':quantity,
+            'side': transaction.BUY,
+            'time_in_force': time_in_force.lower(),
+            #'trigger': trigger,
+            'type': order.lower()
+
+                #'ref_id': str(uuid.uuid4()),
+            }
+
+        res = self.session.post(endpoints.orders(), data=payload, timeout=15)
+        res.raise_for_status()
+
+        return res
 
     def place_buy_order(self,
                         instrument,

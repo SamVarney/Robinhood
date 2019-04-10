@@ -21,18 +21,16 @@ class Portfolio:
         self.stocks = []
         for item in securities:
             instrument = dict(self.trader.get_url(item['instrument']))
-            self.stocks.append(Stock(self, self.trader, instrument))
-
-
-        for stock in self.stocks:
-            print stock.general_info()
-
+            self.stocks.append(Stock(trader= self.trader,
+                                     instrument=instrument,
+                                     portfolio=self))
 
     def stock_handles(self):
         stock_dict = dict()
+
         for stock in self.stocks:
             stock_dict[stock.symbol] = stock
-        print stock_dict
+
         return stock_dict
 
 
@@ -44,7 +42,7 @@ class Portfolio:
 
         print "~~~~ Getting Trade History ~~~~"
         #Get raw past order output from Robinhood
-        past_orders_raw = my_trader.order_history()
+        past_orders_raw = self.trader.order_history()
 
         # Fetch past orders
         results = past_orders_raw['results']
@@ -58,17 +56,83 @@ class Portfolio:
 
         # Use instrument url to get the stock symbol for each trade and insert it into the df
         for row in order_history_pd.iterrows():
-            instrument = my_trader.get_url(row[1]['instrument'])
+            instrument = self.trader.get_url(row[1]['instrument'])
             order_history_pd.at[row[0], 'symbol'] = instrument['symbol']
 
         return order_history_pd
 
 
+    def general_info(self):
+        for stock in self.stocks:
+            print stock.general_info()
 
+        return True
+
+
+    def news(self, article_summaries=False):
+
+        #Get handles for each stock owned
+        stock_handles_dict = self.stock_handles()
+
+        #Print info and news for each stock
+        for key in stock_handles_dict:
+            stock_handle = stock_handles_dict[key]
+
+            news = my_trader.get_news(stock_handle.symbol)['results']
+
+            #Get updated quote info
+            stock_handle.get_quote()
+
+            # Print out the stock info and news articles
+            print stock_handle.symbol + ' - Current Price: $' + str(stock_handle.bid_price) + '. (Bought: ' + str(stock_handle.avg_buy_cost) + ')'
+
+            for article in news:
+                article = dict(article)
+                print '--------------------------------------------------'
+                print '(Pub: ' + article['published_at'] + ') ' + article['title']
+                print article['url']
+
+                if article_summaries:
+                    print article['summary']
+
+            print '--------------------------------------------------'
+            print '--------------------------------------------------\n\n\n'
+
+        """
+        print "\n\n"
+        for result in securities['results']:
+
+            instrument = my_trader.get_url(result['instrument'])  # get symbol of stock
+            name = instrument['symbol']
+            news = my_trader.get_news(name)
+
+            #Fetch Recent prices prices
+            quote = my_trader.quote_data(name)
+            last_price = float(quote['last_trade_price'])
+            price_bought = float(result['pending_average_buy_price'])
+
+            # Print out the info
+            print name + ' - Current Price: $' + str(last_price) + '. (Bought: ' + str(price_bought) + ')'
+
+            for article in news['results']:
+                article = dict(article)
+                print '--------------------------------------------------'
+                print '(Pub: ' + article['published_at'] + ') ' + article['title']
+                print article['url']
+                print article['summary']
+
+            print '--------------------------------------------------'
+            print '--------------------------------------------------\n\n'
+            """
 
 class Stock:
-    def __init__(self, portfolio, my_trader, instrument):
-        self.portfolio = portfolio
+    def __init__(self, trader, instrument, portfolio=None,):
+
+        if portfolio is not None:
+            self.portfolio = portfolio
+        else:
+            self.portfolio = Portfolio(trader)
+
         self.symbol = instrument['symbol']
         self.id = instrument['id']
         self.fudamentals = instrument['fundamentals']
@@ -78,11 +142,11 @@ class Stock:
 
         #Store Trader instance (not sure this is Kosher but will do for now)
         #TODO: revist storing a Trader instance in each stock instance
-        self.trader = my_trader
+        self.trader = trader
 
         #Now get info on perfomance since bought
         #Get portfolio
-        securities = my_trader.securities_owned()['results']
+        securities = self.trader.securities_owned()['results']
         pd_securities = pd.DataFrame.from_dict(securities)
 
         #The keys from Robinhood come as unicode so converting them to strings
@@ -116,8 +180,6 @@ class Stock:
         self.quote_time = datetime.strptime(str(quote['updated_at']),'%Y-%m-%dT%H:%M:%SZ') #Assuming it will always come as UTC (Z)
 
         return True
-
-
 
     def plot_historical_quotes(self, interval = '5minute', span = 'week', fig_title='', show_plot = True):
         '''
@@ -167,7 +229,6 @@ class Stock:
         self.filled_orders = self.past_orders[self.past_orders['state']=='filled'] #Only orders that were filled (not canceled)
 
         return True
-
 
     def plot_purchase_vs_price(self):
         """
@@ -228,8 +289,6 @@ class Stock:
 
         return True
 
-
-
     def historical_quotes(self, interval = '5minute', span = 'week'):
         '''
 
@@ -238,7 +297,7 @@ class Stock:
         '''
 
         #Grab historical data
-        history = my_trader.get_historical_quotes(self.symbol, interval=interval, span = span, bounds='regular')
+        history = self.trader.get_historical_quotes(self.symbol, interval=interval, span = span, bounds='regular')
 
 
         #sort and reformat historicals
@@ -255,7 +314,6 @@ class Stock:
         return hist_pd
 
 
-
     # Methods for summarizing information on stock
     def all_info(self):
 
@@ -265,7 +323,6 @@ class Stock:
         return dict({'symbol': self.symbol,
                 'quantity': self.quantity_owned,
                 'Cost': self.avg_buy_cost})
-
 
     def general_info(self):
         self.get_quote() #update for most current price
@@ -362,7 +419,7 @@ class cryto_holding:
 
     #quote methods
     def get_quote(self):
-        quote = my_trader.crypto_quote_data("{}USD".format(self.code)) #assuming I'll always buy in USD
+        quote = self.trader.crypto_quote_data("{}USD".format(self.code)) #assuming I'll always buy in USD
 
         #Selling Info
         self.bid_price = float(quote['bid_price'])
@@ -398,11 +455,6 @@ class cryto_holding:
         print '----------------------------------\n'
 
 
-        #print currency
-
-
-
-
 
 
 
@@ -425,24 +477,4 @@ if __name__ == "__main__":
 
     port = Portfolio(my_trader)
 
-    """
-    past_orders = port.all_past_orders()
-    for row in past_orders.iterrows():
-        data = row[1]
-        if data['state'] == 'filled':
-            print data['executions']
-      """
-
-
-
-
-    stock_dict = port.stock_handles()
-    for key in stock_dict:
-        stock = stock_dict[key]
-        #stock.plot_historical_quotes()
-        stock.plot_purchase_vs_price()
-
-
-
-    #holdings =  crypto_porfolio(my_trader)
-    #holdings.general_info()
+    port.news()

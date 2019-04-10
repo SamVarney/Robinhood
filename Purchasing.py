@@ -1,6 +1,6 @@
 from Robinhood import Robinhood
 import config
-from structures import Portfolio
+from Classes import Portfolio
 from Robinhood.crypto import RobinhoodCrypto
 import pandas as pd
 import Robinhood.endpoints as end_points
